@@ -1,20 +1,16 @@
 package serverclient;
 
 import java.io.*;
-import java.net.Socket;
+import java.net.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-public class ClientHandler extends Thread {
+public class ClientHandler implements Runnable {
 
     private Socket socket;
-    private DateTimeFormatter formatter;
 
-    public ClientHandler(Socket socket,
-                         DateTimeFormatter formatter) {
-
+    public ClientHandler(Socket socket) {
         this.socket = socket;
-        this.formatter = formatter;
     }
 
     @Override
@@ -22,33 +18,42 @@ public class ClientHandler extends Thread {
 
         try {
 
-            BufferedReader input =
-                    new BufferedReader(
-                            new InputStreamReader(
-                                    socket.getInputStream()));
+            BufferedReader input = new BufferedReader(
+                    new InputStreamReader(socket.getInputStream()));
 
-            PrintWriter output =
-                    new PrintWriter(
-                            socket.getOutputStream(), true);
+            PrintWriter output = new PrintWriter(
+                    socket.getOutputStream(), true);
 
-            String message = input.readLine();
+            String message;
 
-            System.out.println("Message Received : " + message);
+            while ((message = input.readLine()) != null) {
 
-            output.println("Hello Client! Message received.");
+                String time = LocalDateTime.now()
+                        .format(DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss"));
 
-            String disconnectTime =
-                    LocalDateTime.now().format(formatter);
+                System.out.println("--------------------------------------");
+                System.out.println("Time        : " + time);
+                System.out.println("Client IP   : " + socket.getInetAddress().getHostAddress());
+                System.out.println("Client Port : " + socket.getPort());
+                System.out.println("Message     : " + message);
+                System.out.println("--------------------------------------");
 
-            System.out.println("--------------------------------------");
-            System.out.println(" Client Disconnected");
-            System.out.println(" IP Address : "
-                    + socket.getInetAddress().getHostAddress());
-            System.out.println(" Disconnected At : "
-                    + disconnectTime);
-            System.out.println("--------------------------------------");
+                output.println("Server Received : " + message);
+
+                if (message.equalsIgnoreCase("exit")) {
+                    break;
+                }
+            }
 
             socket.close();
+            TCPServer.clientCount.decrementAndGet();
+
+            System.out.println("====================================");
+            System.out.println("Client Disconnected");
+            System.out.println("Client IP : " + socket.getInetAddress().getHostAddress());
+            System.out.println("Active Clients : "
+                    + TCPServer.clientCount.get());
+            System.out.println("====================================");
 
         } catch (Exception e) {
             e.printStackTrace();
