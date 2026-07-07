@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCP Server Dashboard</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #ecfdf5; /* light green */
+                color: #ffffff; /* text set to white */
+            min-height: 100vh;
+        }
+
+        header {
+            background: #bbf7d0; /* soft green */
+            padding: 22px 6%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #c7f1dd;
+        }
+
+        .title h1 {
+            font-size: 26px;
+            color: #04251a; /* match dark green header color */
+        }
+
+        .title p {
+            margin-top: 6px;
+                color: #04251a; /* match card headings for consistency */
+            font-size: 14px;
+        }
+
+        .server-status {
+            background: #d1fae5;
+                color: #ffffff;
+            padding: 8px 14px;
+            border-radius: 25px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .server-status .status-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 6px rgba(0,0,0,0.15);
+        }
+
+        .server-status.status-connected { background: #16a34a; color: #ffffff; }
+        .server-status.status-connected .status-dot { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+
+        .server-status.status-disconnected { background: #ef4444; color: #ffffff; }
+        .server-status.status-disconnected .status-dot { background: #fda4af; box-shadow: 0 0 8px #fda4af; }
+
+        .server-status.status-connecting { background: #f59e0b; color: #071708; }
+        .server-status.status-connecting .status-dot { background: #fde68a; box-shadow: 0 0 8px #fde68a; }
+
+        .container {
+            width: 90%;
+            max-width: 1400px;
+            margin: 35px auto;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid #d1f7e0;
+            border-radius: 14px;
+            padding: 25px;
+        }
+
+        .card p {
+            color: #04251a; /* dark green for readability on white card */
+            font-size: 14px;
+            margin-bottom: 14px;
+        }
+
+                .card h2 {
+                        font-size: 32px;
+                            color: #04251a; /* dark green for headings */
+                }
+
+        .blue {
+            color: #38bdf8;
+        }
+
+        .green {
+            color: #4ade80;
+        }
+
+        .purple {
+            color: #c084fc;
+        }
+
+        .orange {
+            color: #fbbf24;
+        }
+
+        .clients-panel {
+            background: #111e31;
+            border: 1px solid #263750;
+            border-radius: 14px;
+            margin-top: 30px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #263750;
+        }
+
+                .panel-header p {
+                            color: #ffffff;
+                        margin-top: 6px;
+                        font-size: 14px;
+                }
+
+                .live {
+                            color: #ffffff;
+                        font-size: 14px;
+                }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            padding: 15px 20px;
+            text-align: left;
+                color: #04251a; /* dark green for readability */
+            background: #d1fae5;
+            font-size: 12px;
+        }
+
+        td {
+            padding: 18px 20px;
+            border-top: 1px solid #c7f1dd;
+                color: #ffffff;
+        }
+
+        tbody tr:hover {
+            background: #04251a; /* dark green for contrast with white text */
+        }
+
+        .user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #16a34a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .online {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+                color: #ffffff;
+            font-size: 14px;
+        }
+
+        .dot {
+            width: 9px;
+            height: 9px;
+            background: #16a34a;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #16a34a;
+        }
+
+        .username {
+            color: #ffffff; /* username text white */
+        }
+
+        footer {
+            text-align: center;
+                color: #ffffff;
+            padding: 30px;
+            font-size: 13px;
+        }
+
+        @media (max-width: 1000px) {
+            .cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .clients-panel {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 900px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .cards {
+                grid-template-columns: 1fr;
+            }
+
+            header {
+                flex-direction: column;
+                gap: 18px;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <div class="title">
+        <h1>TCP Server Dashboard</h1>
+        <p>Multi-client connection monitoring system</p>
+    </div>
+
+    <div class="server-status status-connecting" id="serverStatus">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="status-text">CONNECTING...</span>
+    </div>
+</header>
+
+
+<div class="container">
+
+    <div class="cards">
+
+        <div class="card">
+            <p>ACTIVE CLIENTS</p>
+            <h2 class="blue" id="activeCount">4</h2>
+        </div>
+
+        <div class="card">
+            <p>MAX CLIENTS</p>
+            <h2 class="purple" id="maxClientsValue">10</h2>
+        </div>
+
+        <div class="card">
+            <p>AVAILABLE SLOTS</p>
+            <h2 class="green" id="availableSlots">6</h2>
+        </div>
+
+        <div class="card">
+            <p>TCP PORT</p>
+            <h2 class="orange" id="portValue">5000</h2>
+        </div>
+
+    </div>
+
+
+    <div class="clients-panel">
+
+        <div class="panel-header">
+
+            <div>
+                <h2>Currently Active Clients</h2>
+                <p>Connected client credentials and network information</p>
+            </div>
+
+            <div class="live">
+                ● LIVE CONNECTIONS
+            </div>
+
+        </div>
+
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>CLIENT NAME</th>
+                    <th>USERNAME</th>
+                    <th>CLIENT ID</th>
+                    <th>IP ADDRESS</th>
+                    <th>PORT</th>
+                    <th>CONNECTED AT</th>
+                    <th>STATUS</th>
+                </tr>
+            </thead>
+
+            <tbody id="clientTable">
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<footer>
+    TCP Multi-Client Server Monitoring Dashboard
+</footer>
+
+
+<script>
+
+    // Sample frontend data.
+    // Later this array can be replaced with data from your Java server API.
+
+    const clients = [
+        {
+            name: "Alice",
+            username: "alice01",
+            clientId: "CLIENT-001",
+            ip: "192.168.1.21",
+            port: 52341,
+            connectedAt: "02:14 PM"
+        },
+
+        {
+            name: "Bob",
+            username: "bob_dev",
+            clientId: "CLIENT-002",
+            ip: "192.168.1.22",
+            port: 52672,
+            connectedAt: "02:16 PM"
+        },
+
+        {
+            name: "John",
+            username: "john123",
+            clientId: "CLIENT-003",
+            ip: "192.168.1.25",
+            port: 52981,
+            connectedAt: "02:20 PM"
+        },
+
+        {
+            name: "Mary",
+            username: "mary_user",
+            clientId: "CLIENT-004",
+            ip: "192.168.1.28",
+            port: 53125,
+            connectedAt: "02:25 PM"
+        }
+    ];
+
+
+    function displayClients() {
+
+        const table = document.getElementById("clientTable");
+
+        table.innerHTML = "";
+
+
+        clients.forEach(client => {
+
+            const row = document.createElement("tr");
+
+            row.innerHTML = `
+
+                <td>
+                    <div class="user">
+
+                        <div class="avatar">
+                            ${client.name.charAt(0)}
+                        </div>
+
+                        <strong>
+                            ${client.name}
+                        </strong>
+
+                    </div>
+                </td>
+
+
+                <td class="username">
+                    ${client.username}
+                </td>
+
+
+                <td>
+                    ${client.clientId}
+                </td>
+
+
+                <td>
+                    ${client.ip}
+                </td>
+
+
+                <td>
+                    ${client.port}
+                </td>
+
+
+                <td>
+                    ${client.connectedAt}
+                </td>
+
+
+                <td>
+                    <span class="online">
+
+                        <span class="dot"></span>
+
+                        ONLINE
+
+                    </span>
+                </td>
+            `;
+
+            table.appendChild(row);
+        });
+
+
+        document.getElementById(
+            "activeCount"
+        ).textContent = clients.length;
+
+
+        document.getElementById(
+            "availableSlots"
+        ).textContent = 10 - clients.length;
+    }
+
+    // Server status helper: call with 'connected', 'disconnected', or 'connecting'
+    function setServerStatus(state) {
+        const el = document.getElementById('serverStatus');
+        if (!el) return;
+        el.classList.remove('status-connected','status-disconnected','status-connecting');
+        if (state === 'connected') {
+            el.classList.add('status-connected');
+            el.querySelector('.status-text').textContent = 'CONNECTED';
+        } else if (state === 'disconnected') {
+            el.classList.add('status-disconnected');
+            el.querySelector('.status-text').textContent = 'DISCONNECTED';
+        } else {
+            el.classList.add('status-connecting');
+            el.querySelector('.status-text').textContent = 'CONNECTING...';
+        }
+    }
+
+    // Initialize status (was connecting by default)
+    setServerStatus('connecting');
+
+
+    displayClients();
+
+</script>
+
+</body>
+</html>
